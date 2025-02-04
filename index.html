@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Crop Image</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        canvas {
+            max-width: 100%;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h2>Upload Image to Auto Crop</h2>
+    <input type="file" id="upload" accept="image/*">
+    <br><br>
+    <canvas id="canvas"></canvas>
+    <br>
+    <button onclick="downloadCropped()">Download Cropped Image</button>
+
+    <script>
+        const upload = document.getElementById("upload");
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+
+        upload.addEventListener("change", function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            img.onload = function() {
+                cropImage(img);
+            };
+        });
+
+        function cropImage(img) {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+
+            const imageData = ctx.getImageData(0, 0, img.width, img.height);
+            const { data, width, height } = imageData;
+            
+            const bgColor = getMostCommonColor(data);
+            const threshold = 30; // Tolerance for color similarity
+
+            let top = 0, bottom = height, left = 0, right = width;
+
+            // Detect top crop
+            outer: for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    if (!isColorMatch(getPixelColor(data, x, y, width), bgColor, threshold)) {
+                        top = y;
+                        break outer;
+                    }
+                }
+            }
+
+            // Detect bottom crop
+            outer: for (let y = height - 1; y >= 0; y--) {
+                for (let x = 0; x < width; x++) {
+                    if (!isColorMatch(getPixelColor(data, x, y, width), bgColor, threshold)) {
+                        bottom = y;
+                        break outer;
+                    }
+                }
+            }
+
+            // Detect left crop
+            outer: for (let x = 0; x < width; x++) {
+                for (let y = 0; y < height; y++) {
+                    if (!isColorMatch(getPixelColor(data, x, y, width), bgColor, threshold)) {
+                        left = x;
+                        break outer;
+                    }
+                }
+            }
+
+            // Detect right crop
+            outer: for (let x = width - 1; x >= 0; x--) {
+                for (let y = 0; y < height; y++) {
+                    if (!isColorMatch(getPixelColor(data, x, y, width), bgColor, threshold)) {
+                        right = x;
+                        break outer;
+                    }
+                }
+            }
+
+            const cropWidth = right - left;
+            const cropHeight = bottom - top;
+
+            const croppedCanvas = document.createElement("canvas");
+            const croppedCtx = croppedCanvas.getContext("2d");
+            croppedCanvas.width = cropWidth;
+            croppedCanvas.height = cropHeight;
+            croppedCtx.drawImage(img, left, top, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
+            // Replace the original canvas with the cropped version
+            canvas.width = cropWidth;
+            canvas.height = cropHeight;
+            ctx.drawImage(croppedCanvas, 0, 0);
+        }
+
+        function getPixelColor(data, x, y, width) {
+            const index = (y * width + x) * 4;
+            return [data[index], data[index + 1], data[index + 2]];
+        }
+
+        function getMostCommonColor(data) {
+            const colorCounts = {};
+            let maxColor = null;
+            let maxCount = 0;
+
+            for (let i = 0; i < data.length; i += 4) {
+                const key = `${data[i]},${data[i+1]},${data[i+2]}`;
+                colorCounts[key] = (colorCounts[key] || 0) + 1;
+
+                if (colorCounts[key] > maxCount) {
+                    maxCount = colorCounts[key];
+                    maxColor = key.split(",").map(Number);
+                }
+            }
+            return maxColor;
+        }
+
+        function isColorMatch(color1, color2, threshold) {
+            return Math.abs(color1[0] - color2[0]) < threshold &&
+                   Math.abs(color1[1] - color2[1]) < threshold &&
+                   Math.abs(color1[2] - color2[2]) < threshold;
+        }
+
+        function downloadCropped() {
+            const link = document.createElement("a");
+            link.download = "cropped-image.png";
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+    </script>
+</body>
+</html>
