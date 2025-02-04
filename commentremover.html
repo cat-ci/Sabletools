@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comment Remover</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            text-align: center;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 10px;
+            padding: 10px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h2>Comment Remover</h2>
+    <textarea id="codeInput" placeholder="Paste your HTML, CSS, or JS code here..."></textarea>
+    <br>
+    <button onclick="removeComments()">Remove Comments</button>
+    <h3>Cleaned Code:</h3>
+    <textarea id="output" readonly></textarea>
+    
+    <script>
+        function removeComments() {
+            let code = document.getElementById("codeInput").value;
+            
+            // Remove HTML comments <!-- -->
+            code = code.replace(/<!--.*?-->/gs, "");
+            
+            // Remove CSS and JS comments /* */
+            code = code.replace(/\/\*[\s\S]*?\*\//g, "");
+            
+            // Remove JS single-line comments //
+            code = code.replace(/(^|[^:])\/\/.*$/gm, "$1");
+            
+            document.getElementById("output").value = code.trim();
+        }
+    </script>
+</body>
+</html>
