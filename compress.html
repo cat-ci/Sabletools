@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML to Single HTML</title>
+    <script>
+        async function fetchAndInline(url, baseUrl) {
+            const response = await fetch(new URL(url, baseUrl));
+            if (!response.ok) return '';
+            const contentType = response.headers.get('content-type');
+            if (contentType.includes('image') || contentType.includes('font') || contentType.includes('audio') || contentType.includes('video')) {
+                const blob = await response.blob();
+                return new Promise(resolve => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.readAsDataURL(blob);
+                });
+            } else {
+                return response.text();
+            }
+        }
+
+        async function processHTML() {
+            const baseUrl = document.getElementById('baseUrl').value;
+            const inputHtml = document.getElementById('inputHtml').value;
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(inputHtml, 'text/html');
+
+            for (const tag of doc.querySelectorAll('link[rel="stylesheet"], script[src], img, iframe, audio, video, source, link[rel="icon"]')) {
+                const attr = tag.tagName === 'LINK' && tag.rel === 'stylesheet' ? 'href' : 'src';
+                if (tag.hasAttribute(attr)) {
+                    const newData = await fetchAndInline(tag.getAttribute(attr), baseUrl);
+                    if (newData.startsWith('data:')) {
+                        tag.setAttribute(attr, newData);
+                    } else {
+                        tag.remove();
+                    }
+                }
+            }
+
+            for (const tag of doc.querySelectorAll('style[src]')) {
+                const src = tag.getAttribute('src');
+                if (src) {
+                    const cssData = await fetchAndInline(src, baseUrl);
+                    if (cssData) {
+                        tag.innerHTML = cssData;
+                        tag.removeAttribute('src');
+                    }
+                }
+            }
+
+            for (const tag of doc.querySelectorAll('script[src]')) {
+                const src = tag.getAttribute('src');
+                if (src) {
+                    const scriptData = await fetchAndInline(src, baseUrl);
+                    if (scriptData) {
+                        tag.innerHTML = scriptData;
+                        tag.removeAttribute('src');
+                    }
+                }
+            }
+
+            for (const tag of doc.querySelectorAll('svg use')) {
+                const href = tag.getAttribute('xlink:href') || tag.getAttribute('href');
+                if (href && !href.startsWith('#')) {
+                    const svgData = await fetchAndInline(href, baseUrl);
+                    if (svgData) {
+                        const svgDoc = parser.parseFromString(svgData, 'image/svg+xml');
+                        const paths = svgDoc.querySelectorAll('path');
+                        tag.replaceWith(...paths);
+                    }
+                }
+            }
+
+            document.getElementById('outputHtml').value = new XMLSerializer().serializeToString(doc);
+        }
+    </script>
+</head>
+<body>
+    <h1>Convert HTML to Single HTML</h1>
+    <label>Base URL: <input type="text" id="baseUrl" placeholder="https://example.com/"></label>
+    <br><br>
+    <textarea id="inputHtml" rows="10" cols="80" placeholder="Paste HTML here..."></textarea>
+    <br>
+    <button onclick="processHTML()">Convert</button>
+    <br>
+    <textarea id="outputHtml" rows="10" cols="80" placeholder="Converted HTML"></textarea>
+</body>
+</html>
